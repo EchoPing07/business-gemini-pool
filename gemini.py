@@ -524,6 +524,54 @@ def save_image_to_cache(image_data: bytes, mime_type: str = "image/png", filenam
     return filename
 
 
+def parse_base64_data_url(data_url: str) -> Optional[Dict]:
+    """解析 base64 data URL，返回 {type, mime_type, data} 或 None"""
+    if not data_url or not data_url.startswith("data:"):
+        return None
+    
+    # base64格式: data:image/png;base64,xxxxx
+    match = re.match(r"data:([^;]+);base64,(.+)", data_url)
+    if match:
+        return {
+            "type": "base64",
+            "mime_type": match.group(1),
+            "data": match.group(2)
+        }
+    return None
+
+
+def extract_images_from_files_array(files: List[Dict]) -> List[Dict]:
+    """从 files 数组中提取图片（支持内联 base64 格式）
+    
+    支持格式:
+    {
+        "data": "data:image/png;base64,xxxxx",
+        "type": "image",
+        "detail": "high"  # 可选
+    }
+    
+    返回: 图片列表 [{type: 'base64', mime_type: ..., data: ...}]
+    """
+    images = []
+    for file_item in files:
+        if not isinstance(file_item, dict):
+            continue
+        
+        file_type = file_item.get("type", "")
+        
+        # 只处理图片类型
+        if file_type != "image":
+            continue
+        
+        data = file_item.get("data", "")
+        if data:
+            parsed = parse_base64_data_url(data)
+            if parsed:
+                images.append(parsed)
+    
+    return images
+
+
 def extract_images_from_openai_content(content: Any) -> tuple[str, List[Dict]]:
     """从OpenAI格式的content中提取文本和图片
     
@@ -554,23 +602,21 @@ def extract_images_from_openai_content(content: Any) -> tuple[str, List[Dict]]:
             else:
                 url = image_url_obj.get("url", "")
             
-            if url.startswith("data:"):
-                # base64格式: data:image/png;base64,xxxxx
-                match = re.match(r"data:([^;]+);base64,(.+)", url)
-                if match:
-                    mime_type = match.group(1)
-                    base64_data = match.group(2)
-                    images.append({
-                        "type": "base64",
-                        "mime_type": mime_type,
-                        "data": base64_data
-                    })
-            else:
+            parsed = parse_base64_data_url(url)
+            if parsed:
+                images.append(parsed)
+            elif url:
                 # 普通URL
                 images.append({
                     "type": "url",
                     "url": url
                 })
+        
+        # 支持直接的 image 类型（带 data 字段）
+        elif item_type == "image" and item.get("data"):
+            parsed = parse_base64_data_url(item.get("data"))
+            if parsed:
+                images.append(parsed)
     
     return "\n".join(text_parts), images
 
@@ -658,48 +704,33 @@ def download_file_with_jwt(jwt: str, session_name: str, file_id: str, proxy: Opt
     return content
 
 
-def stream_chat_with_images(jwt: str, sess_name: str, message: str, images: List[Dict], 
+def upload_inline_image_to_gemini(jwt: str, session_name: str, team_id: str, 
+                                   image_data: Dict, proxy: str = None) -> Optional[str]:
+    """上传内联图片到 Gemini，返回 fileId"""
+    try:
+        ext_map = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}
+        
+        if image_data.get("type") == "base64":
+            mime_type = image_data.get("mime_type", "image/png")
+            file_content = base64.b64decode(image_data.get("data", ""))
+            ext = ext_map.get(mime_type, ".png")
+            filename = f"inline_{uuid.uuid4().hex[:8]}{ext}"
+        elif image_data.get("type") == "url":
+            file_content, mime_type = download_image_from_url(image_data.get("url"), proxy)
+            ext = ext_map.get(mime_type, ".png")
+            filename = f"url_{uuid.uuid4().hex[:8]}{ext}"
+        else:
+            return None
+        
+        return upload_file_to_gemini(jwt, session_name, team_id, file_content, filename, mime_type, proxy)
+    except Exception:
+        return None
+
+
+def stream_chat_with_images(jwt: str, sess_name: str, message: str, 
                             proxy: str, team_id: str, file_ids: List[str] = None) -> ChatResponse:
-    """发送消息并流式接收响应，支持图片输入输出和文件附件
-    
-    Args:
-        jwt: JWT token
-        sess_name: 会话名称
-        message: 用户消息文本
-        images: 图片列表 [{type: 'base64'|'url', ...}]
-        proxy: 代理地址
-        team_id: 团队ID
-        file_ids: Gemini 文件ID列表（用于附带已上传的文件）
-    
-    Returns:
-        ChatResponse 包含文本和图片
-    """
-    # 构建查询parts
+    """发送消息并流式接收响应"""
     query_parts = [{"text": message}]
-    
-    # 如果有输入图片，添加到parts中
-    for img in images:
-        if img.get("type") == "base64":
-            query_parts.append({
-                "inlineData": {
-                    "mimeType": img.get("mime_type", "image/png"),
-                    "data": img.get("data")
-                }
-            })
-        elif img.get("type") == "url":
-            # 先下载图片再转base64
-            try:
-                img_data, mime_type = download_image_from_url(img.get("url"), proxy)
-                query_parts.append({
-                    "inlineData": {
-                        "mimeType": mime_type,
-                        "data": base64.b64encode(img_data).decode("utf-8")
-                    }
-                })
-            except Exception as e:
-                print(f"[图片] 下载输入图片失败: {e}")
-    
-    # 准备请求中的文件ID列表
     request_file_ids = file_ids if file_ids else []
     
     body = {
@@ -1123,6 +1154,7 @@ def chat_completions():
         
         data = request.json
         messages = data.get('messages', [])
+        prompts = data.get('prompts', [])  # 支持替代格式
         stream = data.get('stream', False)
 
         # 提取用户消息、图片和文件ID
@@ -1130,6 +1162,7 @@ def chat_completions():
         input_images = []
         input_file_ids = []  # OpenAI file_id 列表
         
+        # 处理标准 OpenAI messages 格式
         for msg in messages:
             if msg.get('role') == 'user':
                 content = msg.get('content', '')
@@ -1142,7 +1175,6 @@ def chat_completions():
                 if isinstance(content, list):
                     for item in content:
                         if isinstance(item, dict):
-                            print(f"[调试] 发现文件项: {item}")
                             # 格式1: {"type": "file", "file_id": "xxx"}
                             if item.get('type') == 'file' and item.get('file_id'):
                                 input_file_ids.append(item['file_id'])
@@ -1154,16 +1186,29 @@ def chat_completions():
                                 if fid:
                                     input_file_ids.append(fid)
         
+        # 处理替代 prompts 格式（支持内联 base64 图片）
+        # 格式: {"prompts": [{"role": "user", "text": "...", "files": [{"data": "data:image...", "type": "image"}]}]}
+        for prompt in prompts:
+            if prompt.get('role') == 'user':
+                # 提取文本
+                prompt_text = prompt.get('text', '')
+                if prompt_text and not user_message:
+                    user_message = prompt_text
+                elif prompt_text:
+                    user_message = prompt_text  # 使用最新的用户消息
+                
+                # 提取内联 files 数组中的图片
+                files_array = prompt.get('files', [])
+                if files_array:
+                    images_from_files = extract_images_from_files_array(files_array)
+                    input_images.extend(images_from_files)
+        
         # 将 OpenAI file_id 转换为 Gemini fileId
         gemini_file_ids = []
-        print(f"[调试] 输入的OpenAI文件ID: {input_file_ids}")
         for fid in input_file_ids:
             gemini_fid = file_manager.get_gemini_file_id(fid)
             if gemini_fid:
                 gemini_file_ids.append(gemini_fid)
-            else:
-                print(f"[警告] 未找到文件映射: {fid}")
-        print(f"[调试] 转换后的Gemini文件ID: {gemini_file_ids}")
         
         if not user_message and not input_images and not gemini_file_ids:
             return jsonify({"error": "No user message found"}), 400
@@ -1176,13 +1221,16 @@ def chat_completions():
         for _ in range(max_retries):
             try:
                 account_idx, account = account_manager.get_next_account()
-                csesidx = account.get("csesidx", "unknown")
-                print(f"[调度] 当前使用账号CSESIDX: {csesidx}")
                 session, jwt, team_id = ensure_session_for_account(account_idx, account)
                 proxy = account_manager.config.get("proxy")
                 
-                # 发送请求（支持图片和文件）
-                chat_response = stream_chat_with_images(jwt, session, user_message, input_images, proxy, team_id, gemini_file_ids)
+                # 上传内联图片获取 fileId
+                for img in input_images:
+                    uploaded_file_id = upload_inline_image_to_gemini(jwt, session, team_id, img, proxy)
+                    if uploaded_file_id:
+                        gemini_file_ids.append(uploaded_file_id)
+                
+                chat_response = stream_chat_with_images(jwt, session, user_message, proxy, team_id, gemini_file_ids)
                 break
             except Exception as e:
                 last_error = e

@@ -74,9 +74,14 @@ curl --location --request POST 'http://127.0.0.1:8000/v1/chat/completions' \
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/v1/models` | 获取可用模型列表 |
-| POST | `/v1/chat/completions` | 聊天对话接口 |
+| POST | `/v1/chat/completions` | 聊天对话接口（支持图片） |
+| POST | `/v1/files` | 上传文件 |
+| GET | `/v1/files` | 获取文件列表 |
+| GET | `/v1/files/<id>` | 获取文件信息 |
+| DELETE | `/v1/files/<id>` | 删除文件 |
 | GET | `/v1/status` | 获取系统状态 |
 | GET | `/health` | 健康检查 |
+| GET | `/image/<filename>` | 获取缓存图片 |
 
 **管理接口**
 
@@ -249,6 +254,81 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
     "stream": true
   }'
 ```
+
+### 带图片对话
+
+支持两种图片发送方式：
+
+#### 方式1：先上传文件，再引用 file_id
+
+```bash
+# 1. 上传图片
+curl -X POST http://127.0.0.1:8000/v1/files \
+  -F "file=@image.png" \
+  -F "purpose=assistants"
+# 返回: {"id": "file-xxx", ...}
+
+# 2. 引用 file_id 发送消息
+curl -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-enterprise",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "描述这张图片"},
+          {"type": "file", "file_id": "file-xxx"}
+        ]
+      }
+    ]
+  }'
+```
+
+#### 方式2：内联 base64 图片（自动上传）
+
+**OpenAI 标准格式**
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-enterprise",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "描述这张图片"},
+          {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+        ]
+      }
+    ]
+  }'
+```
+
+**prompts 格式（files 数组）**
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-enterprise",
+    "prompts": [
+      {
+        "role": "user",
+        "text": "描述这张图片",
+        "files": [
+          {
+            "data": "data:image/png;base64,...",
+            "type": "image"
+          }
+        ]
+      }
+    ]
+  }'
+```
+
+> **注意**: 内联 base64 图片会自动上传到 Gemini 获取 fileId，然后发送请求。
 
 ## 注意事项
 
