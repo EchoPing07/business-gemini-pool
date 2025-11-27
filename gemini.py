@@ -1477,7 +1477,7 @@ def toggle_account(account_id):
     return jsonify({"success": True, "available": not current})
 
 
-@app.route('/api/accounts/<int:account_id>/test', methods=['POST'])
+@app.route('/api/accounts/<int:account_id>/test', methods=['GET'])
 def test_account(account_id):
     """测试账号JWT获取"""
     if account_id < 0 or account_id >= len(account_manager.accounts):
