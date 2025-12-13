@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # 下面这行会自动获取你的仓库名并转为小写
+  # 下面这行会自动获取你的仓库名并转为小写.
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
