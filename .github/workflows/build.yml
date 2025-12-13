@@ -1,4 +1,4 @@
-name: Build Docker Image
+name: Build
 
 on:
   push:
@@ -9,24 +9,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       packages: write
+      contents: read
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and Push
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          # 注意：这里我已经强制改成了全小写
 标签: ghcr.io/echoping07/business-gemini-pool:latest
