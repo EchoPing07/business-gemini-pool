@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Business-Gemini-Pool 控制台</title>
+    <style>
+        :root {
+            --primary: #4285f4;
+            --primary-hover: #3367d6;
+            --primary-light: rgba(66, 133, 244, 0.1);
+            --success: #34a853;
+            --success-light: rgba(52, 168, 83, 0.15);
+            --danger: #ea4335;
+            --danger-light: rgba(234, 67, 53, 0.1);
+            --warning: #fbbc04;
+            --warning-light: rgba(251, 188, 4, 0.15);
+            
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f0f2f5;
+            --bg-card: #ffffff;
+            --bg-input: #f8f9fa;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #111827;
+            --bg-card: #1f2937;
+            --bg-input: #374151;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s;
+            padding-bottom: 40px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            background: var(--bg-card);
+            padding: 16px 20px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            transition: var(--transition);
+        }
+        .logo svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .header h1 { font-size: 18px; font-weight: 600; color: var(--text-main); }
+        .header h1 span { display: block; font-size: 12px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+
+        .header-right { display: flex; align-items: center; gap: 10px; }
+
+        .status-indicator {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            background: var(--success-light);
+            border-radius: 20px;
+            font-size: 12px; color: var(--success); font-weight: 600;
+        }
+        .status-indicator::before {
+            content: ''; width: 8px; height: 8px; background: var(--success); border-radius: 50%;
+        }
+        .status-indicator.offline { background: var(--danger-light); color: var(--danger); }
+        .status-indicator.offline::before { background: var(--danger); }
+
+        .icon-btn {
+            width: 36px; height: 36px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--text-muted);
+            transition: var(--transition);
+            text-decoration: none;
+        }
+        .icon-btn:hover { background: var(--bg-input); color: var(--primary); }
+
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 14px; font-weight: 500;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+            display: flex; align-items: center; gap: 8px;
+            box-shadow: var(--shadow-sm);
+            flex-shrink: 0;
+        }
+        
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+        .tab svg { width: 16px; height: 16px; }
+
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .stat-header { display: flex; justify-content: space-between; align-items: center; }
+        .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .stat-icon { 
+            width: 32px; height: 32px; border-radius: 8px; 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; color: var(--text-main); line-height: 1; }
+
+        .bg-blue-light { background: var(--primary-light); color: var(--primary); }
+        .bg-green-light { background: var(--success-light); color: var(--success); }
+        .bg-red-light { background: var(--danger-light); color: var(--danger); }
+        .bg-yellow-light { background: var(--warning-light); color: #b06000; }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px;
+        }
+
+        .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        
+        th {
+            text-align: left; padding: 14px 20px;
+            font-size: 12px; color: var(--text-muted); text-transform: uppercase;
+            background: var(--bg-input); border-bottom: 1px solid var(--border);
+        }
+        
+        td {
+            padding: 16px 20px;
+            font-size: 14px; color: var(--text-main);
+            border-bottom: 1px solid var(--border);
+        }
+        tr:last-child td { border-bottom: none; }
+
+        code {
+            background: var(--bg-input); padding: 4px 6px; border-radius: 4px;
+            font-family: monospace; font-size: 12px; color: var(--primary);
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 8px 16px; border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            border: 1px solid transparent; transition: var(--transition);
+            text-decoration: none;
+        }
+        .btn:active { transform: scale(0.98); }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        
+        .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
+        .btn-outline:hover { border-color: var(--text-muted); background: var(--bg-input); }
+
+        .btn-danger { background: var(--danger-light); color: var(--danger); }
+        .btn-sm { padding: 6px 10px; font-size: 12px; border-radius: 6px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 500; color: var(--text-main); }
+        .form-input, .form-textarea, .form-select {
+            width: 100%; padding: 10px 12px;
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: var(--bg-input); color: var(--text-main);
+            font-size: 14px; transition: var(--transition);
+            box-sizing: border-box;
+        }
+        .form-input:focus { border-color: var(--primary); outline: none; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px);
+            z-index: 1000; opacity: 0; visibility: hidden;
+            display: flex; align-items: center; justify-content: center;
+            transition: var(--transition);
+        }
+        .modal.show { opacity: 1; visibility: visible; }
+
+        .modal-content {
+            background: var(--bg-card); width: 500px; max-width: 90%;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            transform: scale(0.95); transition: var(--transition);
+            max-height: 90vh; overflow-y: auto;
+        }
+        .modal.show .modal-content { transform: scale(1); }
+
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 18px; font-weight: 600; }
+        .modal-close { background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; }
+        
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-input); }
+
+        .toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--text-main); color: var(--bg-card);
+            padding: 12px 24px; border-radius: 50px;
+            font-size: 14px; font-weight: 500;
+            box-shadow: var(--shadow-md);
+            opacity: 0; visibility: hidden; transition: var(--transition);
+            z-index: 2000;
+        }
+        .toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .header-right { width: 100%; justify-content: space-between; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+            .modal-content { width: 100%; max-width: 100%; border-radius: 20px 20px 0 0; position: absolute; bottom: 0; transform: translateY(100%); }
+            .modal.show .modal-content { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <svg width="0" height="0" style="display: none;">
+        <symbol id="icon-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="icon-robot" viewBox="0 0 24 24"><path d="M12 8V4H8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="12" width="16" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 12h20" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 12V8a4 4 0 0 0-4-4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"></circle></symbol>
+        <symbol id="icon-key" viewBox="0 0 24 24"><path d="M21 2l-2 2"></path><path d="M9 6l-2 2"></path><circle cx="7.5" cy="15.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M21 2l-9.6 9.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15.5 7.5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M16 13l-3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
+        <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/></symbol>
+        <symbol id="icon-message" viewBox="0 0 24 24"><path d="M8 9h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13h6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-login" viewBox="0 0 24 24"><path d="M9 8v-2a2 2 0 0 1 2 -2h7a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 12h13l-3 -3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 15l3 -3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M15 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12h-13l3 -3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 15l-3 -3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </svg>
+
+    <div class="container">
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-brand-google"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M20.945 11a9 9 0 1 1 -3.284 -5.997l-2.655 2.392a5.5 5.5 0 1 0 2.119 6.605h-4.125v-3h7.945z" /></svg>
+                </div>
+                <div>
+                    <h1>Business Gemini <span>号池控制台</span></h1>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator" id="serviceStatus">运行中</div>
+                <a href="chat_history.html" class="icon-btn" title="在线对话">
+                    <svg width="20" height="20"><use xlink:href="#icon-message"></use></svg>
+                </a>
+                <button class="icon-btn" id="loginButton" onclick="showLoginModal()" title="登录">
+                    <svg width="20" height="20"><use xlink:href="#icon-login"></use></svg>
+                </button>
+                <button class="icon-btn" onclick="toggleTheme()" title="切换主题">
+                    <svg width="20" height="20"><use xlink:href="#icon-sun" id="themeIcon"></use></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('accounts')">
+                <svg><use xlink:href="#icon-users"></use></svg> 账号管理
+            </button>
+            <button class="tab" onclick="switchTab('models')">
+                <svg><use xlink:href="#icon-robot"></use></svg> 模型管理
+            </button>
+            <button class="tab" onclick="switchTab('settings')">
+                <svg><use xlink:href="#icon-settings"></use></svg> 系统设置
+            </button>
+            <button class="tab" onclick="switchTab('tokens')">
+                <svg><use xlink:href="#icon-key"></use></svg> Token
+            </button>
+        </div>
+
+        <div id="accounts" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">总账号</span>
+                        <div class="stat-icon bg-blue-light"><svg width="16" height="16"><use xlink:href="#icon-users"></use></svg></div>
+                    </div>
+                    <div class="stat-value" id="totalAccounts">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">可用</span>
+                        <div class="stat-icon bg-green-light">✓</div>
+                    </div>
+                    <div class="stat-value" id="availableAccounts">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">不可用</span>
+                        <div class="stat-icon bg-red-light">!</div>
+                    </div>
+                    <div class="stat-value" id="unavailableAccounts">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">轮训索引</span>
+                        <div class="stat-icon bg-yellow-light">#</div>
+                    </div>
+                    <div class="stat-value" id="currentIndex">0</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">账号列表</div>
+                    <button class="btn btn-primary" onclick="showAddAccountModal()">
+                        <svg width="16" height="16"><use xlink:href="#icon-plus"></use></svg> 添加账号
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table id="accountsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Team ID</th>
+                                <th>User Agent</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="models" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">模型列表</div>
+                    <button class="btn btn-primary" onclick="showAddModelModal()">
+                        <svg width="16" height="16"><use xlink:href="#icon-plus"></use></svg> 添加模型
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table id="modelsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>名称</th>
+                                <th>上下文</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modelsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="settings" class="tab-content">
+            <div class="card">
+                <div class="card-header"><div class="card-title">系统配置</div></div>
+                <div class="card-body" style="padding: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">代理地址</label>
+                        <input type="text" class="form-input" id="proxyUrl" placeholder="http://127.0.0.1:7890">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">图片输出模式</label>
+                        <select class="form-select" id="imageOutputMode">
+                            <option value="url">URL 链接</option>
+                            <option value="base64">Base64 编码</option>
+                        </select>
+                    </div>
+                     <div class="form-group">
+                        <label class="form-label">日志级别</label>
+                        <select id="logLevelSelect" class="form-select" onchange="updateLogLevel(this.value)">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO" selected>INFO</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                        <button class="btn btn-outline" onclick="testProxy()">测试代理</button>
+                    </div>
+                    <div id="proxyStatus" style="margin-top: 10px; font-size: 13px;"></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><div class="card-title">配置管理</div></div>
+                <div class="card-body" style="padding: 20px;">
+                     <div class="form-group">
+                        <label class="form-label">当前配置 (JSON)</label>
+                        <textarea class="form-textarea" id="configJson" rows="10" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-outline" onclick="refreshConfig()">刷新</button>
+                        <button class="btn btn-outline" onclick="downloadConfig()">导出</button>
+                        <button class="btn btn-outline" onclick="uploadConfig()">导入</button>
+                        <input type="file" id="configFileInput" accept=".json" style="display: none;" onchange="handleConfigUpload(event)">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tokens" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">API Tokens</div>
+                    <div style="display: flex; gap: 8px;">
+                         <input id="manualToken" class="form-input" placeholder="自定义 Token" style="width: 150px;">
+                         <button class="btn btn-outline" onclick="generateToken()">生成</button>
+                         <button class="btn btn-primary" onclick="addToken()">添加</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Token</th><th>操作</th></tr></thead>
+                        <tbody id="tokensTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="addAccountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加账号</h3>
+                <button class="modal-close" onclick="closeModal('addAccountModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">快速导入 (JSON)</label>
+                    <textarea class="form-textarea" id="newAccountJson" rows="3" placeholder="粘贴 JSON 自动填充"></textarea>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn btn-outline btn-sm" onclick="parseAccountJson()">解析</button>
+                        <button class="btn btn-outline btn-sm" onclick="pasteAccountJson()">粘贴</button>
+                    </div>
+                </div>
+                <div class="form-group"><label class="form-label">Team ID</label><input type="text" class="form-input" id="newTeamId"></div>
+                <div class="form-group"><label class="form-label">__Secure-C_SES</label><textarea class="form-textarea" id="newSecureCses" rows="2"></textarea></div>
+                <div class="form-group"><label class="form-label">__Host-C_OSES</label><textarea class="form-textarea" id="newHostCoses" rows="2"></textarea></div>
+                <div class="form-group"><label class="form-label">CSESIDX</label><input type="text" class="form-input" id="newCsesidx"></div>
+                <div class="form-group"><label class="form-label">User Agent</label><input type="text" class="form-input" id="newUserAgent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('addAccountModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveNewAccount()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="editAccountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑账号</h3>
+                <button class="modal-close" onclick="closeModal('editAccountModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editAccountId">
+                <div class="form-group"><label class="form-label">Team ID</label><input type="text" class="form-input" id="editTeamId"></div>
+                <div class="form-group"><label class="form-label">__Secure-C_SES</label><textarea class="form-textarea" id="editSecureCses" rows="2"></textarea></div>
+                <div class="form-group"><label class="form-label">__Host-C_OSES</label><textarea class="form-textarea" id="editHostCoses" rows="2"></textarea></div>
+                <div class="form-group"><label class="form-label">CSESIDX</label><input type="text" class="form-input" id="editCsesidx"></div>
+                <div class="form-group"><label class="form-label">User Agent</label><input type="text" class="form-input" id="editUserAgent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('editAccountModal')">取消</button>
+                <button class="btn btn-primary" onclick="updateAccount()">更新</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="refreshCookieModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>刷新 Cookie</h3>
+                <button class="modal-close" onclick="closeModal('refreshCookieModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="refreshAccountId">
+                <div class="form-group"><label class="form-label">__Secure-C_SES</label><textarea class="form-textarea" id="refreshSecureCses" rows="2"></textarea></div>
+                <div class="form-group"><label class="form-label">__Host-C_OSES</label><textarea class="form-textarea" id="refreshHostCoses" rows="2"></textarea></div>
+                <div class="form-group"><label class="form-label">CSESIDX</label><input type="text" class="form-input" id="refreshCsesidx"></div>
+                <div class="form-group">
+                    <label class="form-label">从 JSON 粘贴</label>
+                    <textarea class="form-textarea" id="refreshCookieJson" rows="2"></textarea>
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="btn btn-outline btn-sm" onclick="parseRefreshCookieJson()">解析</button>
+                        <button class="btn btn-outline btn-sm" onclick="pasteRefreshCookieJson()">粘贴</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('refreshCookieModal')">取消</button>
+                <button class="btn btn-primary" onclick="refreshAccountCookie()">刷新</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="addModelModal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>添加模型</h3><button class="modal-close" onclick="closeModal('addModelModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">模型ID</label><input type="text" class="form-input" id="newModelId"></div>
+                    <div class="form-group"><label class="form-label">名称</label><input type="text" class="form-input" id="newModelName"></div>
+                </div>
+                <div class="form-group"><label class="form-label">描述</label><input type="text" class="form-input" id="newModelDesc"></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">上下文</label><input type="number" class="form-input" id="newContextLength" value="32768"></div>
+                    <div class="form-group"><label class="form-label">最大Token</label><input type="number" class="form-input" id="newMaxTokens" value="8192"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="saveNewModel()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="editModelModal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>编辑模型</h3><button class="modal-close" onclick="closeModal('editModelModal')">&times;</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="editModelOriginalId">
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">模型ID</label><input type="text" class="form-input" id="editModelId" readonly style="background:var(--bg-body)"></div>
+                    <div class="form-group"><label class="form-label">名称</label><input type="text" class="form-input" id="editModelName"></div>
+                </div>
+                <div class="form-group"><label class="form-label">描述</label><input type="text" class="form-input" id="editModelDesc"></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">上下文</label><input type="number" class="form-input" id="editContextLength"></div>
+                    <div class="form-group"><label class="form-label">最大Token</label><input type="number" class="form-input" id="editMaxTokens"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="updateModel()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>管理员登录</h3><button class="modal-close" onclick="closeModal('loginModal')">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" id="loginPassword">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="submitLogin()">登录</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE = '.';
+        let accountsData = [], modelsData = [], configData = {}, tokensData = [];
+        const ADMIN_TOKEN_KEY = 'admin_token';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadAllData();
+            setInterval(checkServerStatus, 30000);
+            updateLoginButton();
+        });
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        function updateThemeIcon(theme) {
+            const iconId = theme === 'dark' ? 'icon-sun' : 'icon-moon';
+            document.getElementById('themeIcon').setAttribute('xlink:href', '#' + iconId);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        let toastTimeout;
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast show`;
+            if(type === 'error') toast.style.background = 'var(--danger)';
+            else if(type === 'success') toast.style.background = 'var(--success)';
+            else toast.style.background = 'var(--text-main)';
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+            return token ? { 'X-Admin-Token': token } : {};
+        }
+        async function apiFetch(url, options = {}) {
+            const headers = Object.assign({}, options.headers || {}, getAuthHeaders());
+            const res = await fetch(url, { ...options, headers });
+            if (res.status === 401) { showLoginModal(); throw new Error('需登录'); }
+            return res;
+        }
+
+        async function loadAllData() {
+            await Promise.all([loadAccounts(), loadModels(), loadConfig(), checkServerStatus(), loadTokens(), loadLogLevel()]);
+        }
+
+        async function checkServerStatus() {
+            const el = document.getElementById('serviceStatus');
+            try {
+                const res = await apiFetch(`${API_BASE}/api/status`);
+                if(res.ok) { el.textContent = '运行中'; el.classList.remove('offline'); }
+                else throw new Error();
+            } catch {
+                el.textContent = '离线'; el.classList.add('offline');
+            }
+        }
+
+        async function loadAccounts() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/accounts`);
+                const data = await res.json();
+                accountsData = data.accounts || [];
+                document.getElementById('currentIndex').textContent = data.current_index || 0;
+                renderAccounts();
+                updateStats();
+            } catch (e) { console.error(e); }
+        }
+
+        function renderAccounts() {
+            const tbody = document.getElementById('accountsTableBody');
+            if(!accountsData.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted)">暂无账号</td></tr>'; return; }
+            
+            tbody.innerHTML = accountsData.map((acc, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><code>${acc.team_id || '-'}</code></td>
+                    <td title="${acc.user_agent}">${acc.user_agent ? acc.user_agent.substring(0, 15) + '...' : '-'}</td>
+                    <td><span style="color: ${acc.available ? 'var(--success)' : 'var(--danger)'}; font-weight:600; font-size:12px;">${acc.available ? '● 可用' : '● 不可用'}</span></td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn btn-sm btn-outline" onclick="toggleAccount(${acc.id})">${acc.enabled !== false ? '停用' : '启用'}</button>
+                        <button class="btn btn-sm btn-outline" onclick="testAccount(${acc.id})">测试</button>
+                        <button class="btn btn-sm btn-outline" onclick="showRefreshCookieModal(${acc.id})">刷新</button>
+                        <button class="btn btn-sm btn-outline" onclick="showEditAccountModal(${acc.id})">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteAccount(${acc.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('totalAccounts').textContent = accountsData.length;
+            document.getElementById('availableAccounts').textContent = accountsData.filter(a => a.available).length;
+            document.getElementById('unavailableAccounts').textContent = accountsData.length - accountsData.filter(a => a.available).length;
+        }
+
+        async function toggleAccount(id) {
+            try {
+                await apiFetch(`${API_BASE}/api/accounts/${id}/toggle`, { method: 'POST' });
+                showToast('状态已切换', 'success'); loadAccounts();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+        async function deleteAccount(id) {
+            if(!confirm('确认删除?')) return;
+            try {
+                await apiFetch(`${API_BASE}/api/accounts/${id}`, { method: 'DELETE' });
+                showToast('已删除', 'success'); loadAccounts();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+        async function testAccount(id) {
+            showToast('测试中...', 'info');
+            try {
+                const res = await apiFetch(`${API_BASE}/api/accounts/${id}/test`);
+                const data = await res.json();
+                if(data.success) showToast('测试成功', 'success');
+                else showToast('测试失败: ' + data.message, 'error');
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        function showAddAccountModal() { 
+            document.getElementById('newAccountJson').value = '';
+            document.getElementById('addAccountModal').classList.add('show'); 
+        }
+        function showEditAccountModal(id) {
+            const acc = accountsData.find(a => a.id === id);
+            if(!acc) return;
+            document.getElementById('editAccountId').value = id;
+            document.getElementById('editTeamId').value = acc.team_id || '';
+            document.getElementById('editSecureCses').value = acc.secure_c_ses || '';
+            document.getElementById('editHostCoses').value = acc.host_c_oses || '';
+            document.getElementById('editCsesidx').value = acc.csesidx || '';
+            document.getElementById('editUserAgent').value = acc.user_agent || '';
+            document.getElementById('editAccountModal').classList.add('show');
+        }
+        function showRefreshCookieModal(id) {
+            document.getElementById('refreshAccountId').value = id;
+            document.getElementById('refreshSecureCses').value = '';
+            document.getElementById('refreshHostCoses').value = '';
+            document.getElementById('refreshCsesidx').value = '';
+            document.getElementById('refreshCookieJson').value = '';
+            document.getElementById('refreshCookieModal').classList.add('show');
+        }
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+        async function saveNewAccount() {
+            const data = {
+                team_id: document.getElementById('newTeamId').value,
+                secure_c_ses: document.getElementById('newSecureCses').value,
+                host_c_oses: document.getElementById('newHostCoses').value,
+                csesidx: document.getElementById('newCsesidx').value,
+                user_agent: document.getElementById('newUserAgent').value
+            };
+            try {
+                const res = await apiFetch(`${API_BASE}/api/accounts`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+                if(res.ok) { showToast('添加成功', 'success'); closeModal('addAccountModal'); loadAccounts(); }
+                else throw new Error('添加失败');
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function updateAccount() {
+            const id = document.getElementById('editAccountId').value;
+            const data = {
+                team_id: document.getElementById('editTeamId').value,
+                secure_c_ses: document.getElementById('editSecureCses').value,
+                host_c_oses: document.getElementById('editHostCoses').value,
+                csesidx: document.getElementById('editCsesidx').value,
+                user_agent: document.getElementById('editUserAgent').value
+            };
+            try {
+                await apiFetch(`${API_BASE}/api/accounts/${id}`, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+                showToast('更新成功', 'success'); closeModal('editAccountModal'); loadAccounts();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function refreshAccountCookie() {
+            const id = document.getElementById('refreshAccountId').value;
+            const data = {
+                secure_c_ses: document.getElementById('refreshSecureCses').value,
+                host_c_oses: document.getElementById('refreshHostCoses').value,
+                csesidx: document.getElementById('refreshCsesidx').value
+            };
+            try {
+                const res = await apiFetch(`${API_BASE}/api/accounts/${id}/refresh-cookie`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+                if(res.ok) { showToast('Cookie 刷新成功', 'success'); closeModal('refreshCookieModal'); loadAccounts(); }
+                else throw new Error('刷新失败');
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        function parseAccountJson() {
+            try {
+                const json = JSON.parse(document.getElementById('newAccountJson').value);
+                const acc = Array.isArray(json) ? json[0] : json;
+                document.getElementById('newTeamId').value = acc.team_id || '';
+                document.getElementById('newSecureCses').value = acc.secure_c_ses || '';
+                document.getElementById('newHostCoses').value = acc.host_c_oses || '';
+                document.getElementById('newCsesidx').value = acc.csesidx || '';
+                document.getElementById('newUserAgent').value = acc.user_agent || '';
+                showToast('解析成功', 'success');
+            } catch { showToast('JSON 格式错误', 'error'); }
+        }
+        async function pasteAccountJson() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('newAccountJson').value = text;
+                parseAccountJson();
+            } catch { showToast('无法读取剪贴板', 'error'); }
+        }
+        function parseRefreshCookieJson() {
+             try {
+                const json = JSON.parse(document.getElementById('refreshCookieJson').value);
+                const acc = Array.isArray(json) ? json[0] : json;
+                document.getElementById('refreshSecureCses').value = acc.secure_c_ses || '';
+                document.getElementById('refreshHostCoses').value = acc.host_c_oses || '';
+                document.getElementById('refreshCsesidx').value = acc.csesidx || '';
+                showToast('解析成功', 'success');
+            } catch { showToast('JSON 格式错误', 'error'); }
+        }
+        async function pasteRefreshCookieJson() {
+             try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('refreshCookieJson').value = text;
+                parseRefreshCookieJson();
+            } catch { showToast('无法读取剪贴板', 'error'); }
+        }
+
+        async function loadModels() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/models`);
+                const data = await res.json();
+                modelsData = data.models || [];
+                const tbody = document.getElementById('modelsTableBody');
+                if(!modelsData.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px;">暂无模型</td></tr>'; return; }
+                tbody.innerHTML = modelsData.map((m, i) => `
+                    <tr>
+                        <td><code>${m.id}</code></td>
+                        <td>${m.name}</td>
+                        <td>${m.context_length}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline" onclick="showEditModelModal(${i})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteModel('${m.id}')">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error(e); }
+        }
+        function showAddModelModal() { document.getElementById('addModelModal').classList.add('show'); }
+        function showEditModelModal(index) {
+            const m = modelsData[index];
+            document.getElementById('editModelOriginalId').value = m.id;
+            document.getElementById('editModelId').value = m.id;
+            document.getElementById('editModelName').value = m.name;
+            document.getElementById('editModelDesc').value = m.description;
+            document.getElementById('editContextLength').value = m.context_length;
+            document.getElementById('editMaxTokens').value = m.max_tokens;
+            document.getElementById('editModelModal').classList.add('show');
+        }
+        async function saveNewModel() {
+            const data = {
+                id: document.getElementById('newModelId').value,
+                name: document.getElementById('newModelName').value,
+                description: document.getElementById('newModelDesc').value,
+                context_length: parseInt(document.getElementById('newContextLength').value),
+                max_tokens: parseInt(document.getElementById('newMaxTokens').value)
+            };
+            try {
+                await apiFetch(`${API_BASE}/api/models`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                showToast('添加成功', 'success'); closeModal('addModelModal'); loadModels();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+        async function updateModel() {
+            const id = document.getElementById('editModelOriginalId').value;
+            const data = {
+                name: document.getElementById('editModelName').value,
+                description: document.getElementById('editModelDesc').value,
+                context_length: parseInt(document.getElementById('editContextLength').value),
+                max_tokens: parseInt(document.getElementById('editMaxTokens').value)
+            };
+            try {
+                await apiFetch(`${API_BASE}/api/models/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                showToast('更新成功', 'success'); closeModal('editModelModal'); loadModels();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+        async function deleteModel(id) {
+            if(!confirm('确认删除?')) return;
+            try {
+                await apiFetch(`${API_BASE}/api/models/${id}`, { method: 'DELETE' });
+                loadModels();
+            } catch(e) { showToast('删除失败', 'error'); }
+        }
+        
+        async function loadConfig() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/config`);
+                configData = await res.json();
+                document.getElementById('proxyUrl').value = configData.proxy || '';
+                document.getElementById('imageOutputMode').value = configData.image_output_mode || 'url';
+                document.getElementById('configJson').value = JSON.stringify(configData, null, 2);
+            } catch(e) { console.error(e); }
+        }
+        async function loadLogLevel() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/logging`);
+                const data = await res.json();
+                if(data.level) document.getElementById('logLevelSelect').value = data.level;
+            } catch {}
+        }
+        async function updateLogLevel(level) {
+            try {
+                await apiFetch(`${API_BASE}/api/logging`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({level}) });
+                showToast('日志级别已更新', 'success');
+            } catch { showToast('更新失败', 'error'); }
+        }
+
+        async function saveSettings() {
+            const data = {
+                proxy: document.getElementById('proxyUrl').value,
+                image_output_mode: document.getElementById('imageOutputMode').value
+            };
+            try {
+                await apiFetch(`${API_BASE}/api/config`, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+                showToast('设置已保存', 'success'); loadConfig();
+            } catch(e) { showToast('保存失败', 'error'); }
+        }
+
+        async function testProxy() {
+            const statusEl = document.getElementById('proxyStatus');
+            statusEl.textContent = '测试中...'; statusEl.style.color = 'var(--text-muted)';
+            try {
+                const res = await apiFetch(`${API_BASE}/api/proxy/test`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ proxy: document.getElementById('proxyUrl').value })
+                });
+                const data = await res.json();
+                if(data.success) { statusEl.textContent = '测试通过'; statusEl.style.color = 'var(--success)'; }
+                else { statusEl.textContent = '测试失败'; statusEl.style.color = 'var(--danger)'; }
+            } catch { statusEl.textContent = '请求错误'; statusEl.style.color = 'var(--danger)'; }
+        }
+
+        async function loadTokens() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/tokens`);
+                const data = await res.json();
+                tokensData = data.tokens || [];
+                const tbody = document.getElementById('tokensTableBody');
+                tbody.innerHTML = tokensData.map(t => `
+                    <tr>
+                        <td><code>${t}</code></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline" onclick="copyToken('${t}')">复制</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteToken('${t}')">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error(e); }
+        }
+        async function addToken() {
+            const val = document.getElementById('manualToken').value;
+            try {
+                await apiFetch(`${API_BASE}/api/tokens`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: val})
+                });
+                showToast('Token 添加成功', 'success'); loadTokens();
+            } catch(e) { showToast('添加失败', 'error'); }
+        }
+        function generateToken() {
+            document.getElementById('manualToken').value = crypto.randomUUID().replace(/-/g, '');
+        }
+        async function deleteToken(t) {
+            if(!confirm('删除此 Token?')) return;
+            try {
+                await apiFetch(`${API_BASE}/api/tokens/${t}`, { method: 'DELETE' });
+                loadTokens();
+            } catch(e) { showToast('删除失败', 'error'); }
+        }
+        function copyToken(t) {
+            navigator.clipboard.writeText(t).then(() => showToast('已复制')).catch(() => showToast('复制失败', 'error'));
+        }
+
+        function showLoginModal() { document.getElementById('loginModal').classList.add('show'); }
+        function updateLoginButton() {
+            const btn = document.getElementById('loginButton');
+            const icon = btn.querySelector('use');
+            if(localStorage.getItem(ADMIN_TOKEN_KEY)) {
+                btn.title = '注销';
+                icon.setAttribute('xlink:href', '#icon-logout');
+                btn.onclick = () => { localStorage.removeItem(ADMIN_TOKEN_KEY); location.reload(); };
+            } else {
+                btn.title = '登录';
+                icon.setAttribute('xlink:href', '#icon-login');
+                btn.onclick = showLoginModal;
+            }
+        }
+        async function submitLogin() {
+            const pwd = document.getElementById('loginPassword').value;
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password: pwd})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+                    showToast('登录成功', 'success'); closeModal('loginModal'); loadAllData(); updateLoginButton();
+                } else throw new Error(data.error);
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+        
+        function refreshConfig() { loadConfig(); showToast('配置已刷新'); }
+        function downloadConfig() {
+            const blob = new Blob([JSON.stringify(configData, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'business_gemini_session.json'; a.click();
+        }
+        function uploadConfig() { document.getElementById('configFileInput').click(); }
+        function handleConfigUpload(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    const json = JSON.parse(ev.target.result);
+                    await apiFetch(`${API_BASE}/api/config/import`, {
+                        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(json)
+                    });
+                    showToast('导入成功', 'success'); loadAllData();
+                } catch { showToast('导入失败', 'error'); }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
