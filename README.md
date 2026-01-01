@@ -1,5 +1,6 @@
 # Business Gemini Pool 管理系统
 
+废弃逻辑混乱不要使用
 *测试中更加激进的方案（每次 /v1/chat/completions 请求都会创建全新的 Gemini Session，基于 OpenAI API 的无状态设计）
 
 一个基于 Flask 的 Google Gemini Enterprise API 代理服务，支持多账号轮训、OpenAI 兼容接口和 Web 管理控制台。
